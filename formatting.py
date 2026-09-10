@@ -8,6 +8,7 @@ STAGE_ORDER = [
     "Grading",
     "Assembly",
     "Completing",
+    "Order Arrived",
 ]
 
 # Emoji + colour used per stage (colour-coding requested in the spec)
@@ -18,6 +19,7 @@ STAGE_EMOJI = {
     "Grading": "🟡",
     "Assembly": "🟠",
     "Completing": "🟢",
+    "Order Arrived": "🟣",
 }
 
 STAGE_COLOR = {
@@ -27,6 +29,8 @@ STAGE_COLOR = {
     "Grading": discord.Color.orange(),
     "Assembly": discord.Color.yellow(),
     "Completing": discord.Color.green(),
+    "Order Arrived": discord.Color.purple(),
+    
 }
 
 TIER_ORDER = ["Super Express", "Express", "Regular", "Standard", "Value Max", "TCG Bulk Grading"]
