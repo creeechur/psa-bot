@@ -1,0 +1,116 @@
+<!--
+  PSA Submission Status Widget
+  ------------------------------------------------------------------
+  Paste this into a Shopify "Custom Liquid" section (Online Store 2.0
+  themes: Customize theme -> Add section -> Custom Liquid), or into a
+  custom page template via the theme code editor.
+
+  Before pasting, replace API_BASE_URL below with your deployed web
+  API's public URL (e.g. https://psa-bot-web-production.up.railway.app).
+-->
+
+<div id="psa-tracker" style="max-width:480px;margin:2rem auto;font-family:inherit;">
+  <h3 style="margin-bottom:0.75rem;">Check Your PSA Submission Status</h3>
+
+  <select id="psa-batch-select" style="width:100%;padding:0.5rem;margin-bottom:0.75rem;">
+    <option value="">Loading batches...</option>
+  </select>
+
+  <div id="psa-status-result" style="margin-bottom:1rem;"></div>
+
+  <div id="psa-lookup-box" style="display:none;">
+    <input id="psa-email-input" type="email" placeholder="Your submission email"
+           style="width:100%;padding:0.5rem;margin-bottom:0.5rem;" />
+    <button id="psa-lookup-btn" style="padding:0.5rem 1rem;">Check My Cards</button>
+    <div id="psa-lookup-result" style="margin-top:0.75rem;"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const API_BASE_URL = "https://YOUR-API-URL-HERE"; // <-- change this
+
+  const STAGE_COLORS = {
+    "Order Received": "#B0B0B0", "Scans Pending": "#8B6F1F", "Research & ID": "#D4AC0D",
+    "Grading": "#E67E22", "Assembly": "#2E86C1", "Completing": "#27AE60", "Order Arrived": "#8E44AD",
+  };
+
+  const batchSelect = document.getElementById("psa-batch-select");
+  const statusResult = document.getElementById("psa-status-result");
+  const lookupBox = document.getElementById("psa-lookup-box");
+  const emailInput = document.getElementById("psa-email-input");
+  const lookupBtn = document.getElementById("psa-lookup-btn");
+  const lookupResult = document.getElementById("psa-lookup-result");
+
+  let currentBatch = null;
+
+  function renderPipeline(stageOrder, currentStage) {
+    const idx = stageOrder.indexOf(currentStage);
+    return stageOrder.map((stage, i) => {
+      const color = STAGE_COLORS[stage] || "#999";
+      if (i < idx) return `<div style="text-decoration:line-through;color:#999;">${stage}</div>`;
+      if (i === idx) return `<div style="font-weight:bold;color:${color};">● ${stage}</div>`;
+      return `<div style="color:#555;">${stage}</div>`;
+    }).join('<div style="text-align:center;color:#ccc;">↓</div>');
+  }
+
+  function loadBatches() {
+    fetch(`${API_BASE_URL}/api/batches`)
+      .then(r => r.json())
+      .then(data => {
+        batchSelect.innerHTML = '<option value="">Choose a batch date...</option>' +
+          data.batches.map(d => `<option value="${d}">${d}</option>`).join('');
+      })
+      .catch(() => {
+        batchSelect.innerHTML = '<option value="">Couldn\'t load batches</option>';
+      });
+  }
+
+  function loadStatus(batchDate) {
+    statusResult.innerHTML = "Loading...";
+    lookupBox.style.display = "none";
+    fetch(`${API_BASE_URL}/api/status/${encodeURIComponent(batchDate)}`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(data => {
+        let html = "";
+        for (const [tier, info] of Object.entries(data.tiers)) {
+          html += `<div style="margin-bottom:1rem;"><strong>${tier}</strong>${renderPipeline(data.stage_order, info.status)}</div>`;
+        }
+        statusResult.innerHTML = html;
+        lookupBox.style.display = "block";
+      })
+      .catch(() => {
+        statusResult.innerHTML = "Couldn't find that batch.";
+      });
+  }
+
+  batchSelect.addEventListener("change", function () {
+    currentBatch = this.value;
+    if (currentBatch) loadStatus(currentBatch);
+    else { statusResult.innerHTML = ""; lookupBox.style.display = "none"; }
+  });
+
+  lookupBtn.addEventListener("click", function () {
+    const email = emailInput.value.trim();
+    if (!email || !currentBatch) return;
+    lookupResult.innerHTML = "Checking...";
+    fetch(`${API_BASE_URL}/api/lookup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ batch_date: currentBatch, email: email }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.found) {
+          lookupResult.innerHTML = "No submission found for that email in this batch.";
+          return;
+        }
+        lookupResult.innerHTML =
+          `<strong>${data.name}</strong> — ${data.tiers.join(", ")} — ${data.total_cards} card(s)`;
+      })
+      .catch(() => { lookupResult.innerHTML = "Something went wrong — try again."; });
+  });
+
+  loadBatches();
+})();
+</script>
