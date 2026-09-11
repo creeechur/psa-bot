@@ -37,6 +37,7 @@ TIER_ORDER = ["Value Bulk", "Value Max", "Standard", "Regular", "Express", "Supe
 
 
 
+
 def normalize_stage(stage: str) -> str:
     """Match a free-typed status string to the closest known stage name."""
     if not stage:
@@ -52,7 +53,7 @@ def normalize_stage(stage: str) -> str:
     return stage.strip()  # unknown stage, show as-is
  
  
-def pipeline_string(current_stage: str) -> str:
+def pipeline_string(current_stage: str, last_updated: str = None) -> str:
     """Builds a vertical pipeline, e.g.:
     ~~Order Received~~
     ↓
@@ -61,6 +62,11 @@ def pipeline_string(current_stage: str) -> str:
     🔵 **Grading**
     ↓
     Assembly
+ 
+    If the current stage is "Order Arrived" and a last_updated date is given,
+    that date is shown next to it (this is the only stage we can reliably date,
+    since the sheet only stores one "Last Updated" timestamp per row — the
+    date it was last set to whatever the current status is).
     """
     current_stage = normalize_stage(current_stage)
     try:
@@ -74,17 +80,29 @@ def pipeline_string(current_stage: str) -> str:
             parts.append(f"~~{stage}~~")
         elif i == idx:
             emoji = STAGE_EMOJI.get(stage, "🔵")
-            parts.append(f"{emoji} **{stage}**")
+            label = f"{emoji} **{stage}**"
+            if stage == "Order Arrived" and last_updated:
+                label += f" ({last_updated})"
+            parts.append(label)
         else:
             parts.append(stage)
     return "\n↓\n".join(parts)
  
  
 def batch_embed(batch_date: str, tier_status: dict) -> discord.Embed:
-    """tier_status: {tier_name: current_stage}"""
+    """tier_status: {tier_name: {"status": ..., "last_updated": ...}}
+    (a plain {tier_name: status_string} dict is also accepted for backward
+    compatibility, just without a date shown on Order Arrived)."""
+ 
+    def _status(v):
+        return v["status"] if isinstance(v, dict) else v
+ 
+    def _last_updated(v):
+        return v.get("last_updated") if isinstance(v, dict) else None
+ 
     # colour the embed by the *least advanced* tier so the overall card reflects
     # the earliest stage still in progress
-    stages_present = [normalize_stage(s) for s in tier_status.values() if s]
+    stages_present = [normalize_stage(_status(v)) for v in tier_status.values() if _status(v)]
     color = discord.Color.blurple()
     if stages_present:
         earliest = min(stages_present, key=lambda s: STAGE_ORDER.index(s) if s in STAGE_ORDER else 0)
@@ -100,7 +118,12 @@ def batch_embed(batch_date: str, tier_status: dict) -> discord.Embed:
         t for t in tier_status if t not in TIER_ORDER
     ]
     for tier in ordered_tiers:
-        embed.add_field(name=tier, value=pipeline_string(tier_status[tier]), inline=False)
+        v = tier_status[tier]
+        embed.add_field(
+            name=tier,
+            value=pipeline_string(_status(v), _last_updated(v)),
+            inline=False,
+        )
  
     embed.set_footer(text="Statuses are updated manually on a weekly basis while PSA's own tracker is down.")
     return embed
