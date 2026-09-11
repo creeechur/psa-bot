@@ -33,7 +33,7 @@ STAGE_COLOR = {
     
 }
 
-TIER_ORDER = ["Value Bulk", "Value Max", "Standard", "Regular", "Express", "Super Express"]
+TIER_ORDER = ["Value Bulk", "Value Max", "Standard", "Regular", "Express", "Super Express", "Walkthrough"]
 
 
 def normalize_stage(stage: str) -> str:
