@@ -24,6 +24,13 @@ ADMIN_ROLE_NAMES = [
     r.strip() for r in os.getenv("ADMIN_ROLE_NAMES", "PSA Staff,Admin").split(",") if r.strip()
 ]
 
+# Comma-separated list of origins allowed to call the public web API (used by
+# web_api.py, e.g. your Shopify storefront). Leave unset to allow all origins
+# (fine for testing, but set this in production).
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()
+] or None
+
 # Optional: your Discord server's ID. If set, slash commands sync instantly
 # to that one server (great for testing). If unset, commands sync globally,
 # which can take up to an hour to show up everywhere.
