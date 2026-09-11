@@ -127,4 +127,3 @@ def personal_lookup(payload: LookupRequest, request: Request):
         "submissions": submissions,
     }
 
-    """testing"""
