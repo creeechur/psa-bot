@@ -24,4 +24,18 @@ ADMIN_ROLE_NAMES = [
     r.strip() for r in os.getenv("ADMIN_ROLE_NAMES", "PSA Staff,Admin").split(",") if r.strip()
 ]
 
-STATE_FILE = os.getenv("STATE_FILE", "data/last_status.json")
+# Optional: your Discord server's ID. If set, slash commands sync instantly
+# to that one server (great for testing). If unset, commands sync globally,
+# which can take up to an hour to show up everywhere.
+TEST_GUILD_ID = int(os.getenv("TEST_GUILD_ID", "0") or 0) or None
+
+# Railway auto-injects RAILWAY_VOLUME_MOUNT_PATH once a volume is attached to
+# this service, pointing at wherever it actually mounted it — using that
+# directly means we never have to guess/hardcode the right path.
+_volume_mount = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
+if os.getenv("STATE_FILE"):
+    STATE_FILE = os.getenv("STATE_FILE")
+elif _volume_mount:
+    STATE_FILE = os.path.join(_volume_mount, "last_status.json")
+else:
+    STATE_FILE = "data/last_status.json"
