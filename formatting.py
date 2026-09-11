@@ -82,7 +82,7 @@ def pipeline_string(current_stage: str, last_updated: str = None) -> str:
             emoji = STAGE_EMOJI.get(stage, "🔵")
             label = f"{emoji} **{stage}**"
             if stage == "Order Arrived" and last_updated:
-                label += f" ({last_updated})"
+                label += f" (**{last_updated}**)"
             parts.append(label)
         else:
             parts.append(stage)
