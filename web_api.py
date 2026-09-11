@@ -61,6 +61,10 @@ class LookupRequest(BaseModel):
     email: EmailStr
 
 
+class EmailLookupRequest(BaseModel):
+    email: EmailStr
+
+
 # --- Routes --------------------------------------------------------------
 
 @app.get("/api/health")
@@ -119,6 +123,40 @@ def personal_lookup(payload: LookupRequest, request: Request):
 
     submissions = [
         {"tier": r.get("tier", "Unknown"), "card_qty": int(r.get("card_qty") or 0)}
+        for r in rows
+    ]
+    return {
+        "found": True,
+        "name": rows[0].get("name", ""),
+        "submissions": submissions,
+    }
+
+
+@app.post("/api/lookup-by-email")
+def personal_lookup_by_email(payload: EmailLookupRequest, request: Request):
+    """
+    Search across ALL batches for one email — used when a customer wants to
+    find their submission without already knowing the batch date. Same
+    rate limiting as /api/lookup, since this is just as scrapeable.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    if _rate_limited(client_ip):
+        raise HTTPException(status_code=429, detail="Too many lookups — try again later.")
+
+    try:
+        rows = sheets_client.find_submissions_by_email(payload.email)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Couldn't reach the sheet: {e}")
+
+    if not rows:
+        return {"found": False}
+
+    submissions = [
+        {
+            "batch_date": r.get("batch_date", ""),
+            "tier": r.get("tier", "Unknown"),
+            "card_qty": int(r.get("card_qty") or 0),
+        }
         for r in rows
     ]
     return {
