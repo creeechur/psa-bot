@@ -147,13 +147,15 @@ def personal_lookup_embed(batch_date: str, email: str, rows: list) -> discord.Em
     return embed
  
  
-def change_announcement_embed(batch_date: str, tier: str, old_stage: str, new_stage: str) -> discord.Embed:
+def change_announcement_embed(
+    batch_date: str, tier: str, old_stage: str, new_stage: str, last_updated: str = None
+) -> discord.Embed:
     emoji = STAGE_EMOJI.get(normalize_stage(new_stage), "🔵")
     embed = discord.Embed(
         title=f"{emoji} PSA Update — {batch_date}",
         description=f"**{tier}** moved from *{old_stage or 'Unknown'}* → **{new_stage}**",
         color=STAGE_COLOR.get(normalize_stage(new_stage), discord.Color.blurple()),
     )
-    embed.add_field(name="Pipeline", value=pipeline_string(new_stage), inline=False)
+    embed.add_field(name="Pipeline", value=pipeline_string(new_stage, last_updated), inline=False)
     return embed
  
