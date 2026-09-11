@@ -9,7 +9,7 @@ from discord.ext import commands, tasks
 
 import config
 import sheets_client
-from formatting import batch_embed, personal_lookup_embed, change_announcement_embed, TIER_ORDER, STAGE_ORDER
+from formatting import batch_embed, personal_lookup_embed, email_search_embed, change_announcement_embed, TIER_ORDER, STAGE_ORDER
 
 # Slash commands don't need to read raw message text, so no privileged
 # Message Content Intent is required anymore — this sidesteps that whole
@@ -179,6 +179,27 @@ async def batch_date_autocomplete(interaction: discord.Interaction, current: str
     ][:25]
 
 
+@psa_group.command(name="find", description="Find your submissions across all batches by email")
+@app_commands.describe(email="Your submission email")
+async def psa_find(interaction: discord.Interaction, email: str):
+    await interaction.response.defer(thinking=True, ephemeral=True)
+    try:
+        rows = await asyncio.to_thread(sheets_client.find_submissions_by_email_with_status, email)
+    except Exception as e:
+        await interaction.followup.send(f"⚠️ Couldn't reach the tracking sheet: `{e}`", ephemeral=True)
+        return
+
+    embed = email_search_embed(email, rows)
+    if not rows:
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+
+    # let them jump straight to a full pipeline view for any batch found
+    dates = sorted({r["batch_date"] for r in rows if r.get("batch_date")})
+    view = BatchSelectView(dates) if dates else None
+    await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+
+
 @psa_group.command(name="update", description="Staff only: update a tier's stage for a batch")
 @app_commands.describe(
     batch_date="Batch date, e.g. May 31",
@@ -259,6 +280,7 @@ async def psa_help(interaction: discord.Interaction):
             "`/psa submission` — see current batches and pick one\n"
             "`/psa submission batch_date:` — jump straight to a batch's status\n"
             "`/psa submission batch_date: email:` — see your card count for that batch\n"
+            "`/psa find email:` — find your submissions across ALL batches by email\n"
             "`/psa update` — staff only, updates a tier's stage\n"
         ),
     )
