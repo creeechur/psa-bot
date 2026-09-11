@@ -10,8 +10,9 @@ Tab "Submissions" (this is what a linked Google Form dumps into):
     - "Submission Date" is the BATCH date (e.g. "May 31"), not the form
       timestamp. If your form only captures the timestamp, add a column
       (or a lookup formula) for the batch date your team assigns.
-    - "Tier" should be one of: Super Express, Express, Regular, Value Max,
-      TCG Bulk Grading (free text also works, it's just displayed as-is).
+    - "Tier" should be one of: Value Bulk, Value Max, Standard, Regular,
+      Express, Super Express, Walkthrough (free text also works, it's just
+      displayed as-is — see TIER_ORDER in formatting.py for the current list).
 
 Tab "Status" (maintained by staff, weekly):
     Batch Date | Tier | Status | Last Updated
@@ -95,15 +96,16 @@ def list_batch_dates() -> list[str]:
 
 
 def get_batch_tier_status(batch_date: str) -> dict:
-    """{tier: status} for one batch date."""
+    """{tier: {"status": ..., "last_updated": ...}} for one batch date."""
     rows = get_status_rows()
     result = {}
     for r in rows:
         if str(r.get("Batch Date", "")).strip().lower() == batch_date.strip().lower():
             tier = str(r.get("Tier", "")).strip()
             status = str(r.get("Status", "")).strip()
+            last_updated = str(r.get("Last Updated", "")).strip()
             if tier:
-                result[tier] = status
+                result[tier] = {"status": status, "last_updated": last_updated}
     return result
 
 
