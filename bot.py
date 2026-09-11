@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import os
 
@@ -220,20 +221,37 @@ async def poll_sheet_for_changes():
         batch_date = str(r.get("Batch Date", "")).strip()
         tier = str(r.get("Tier", "")).strip()
         status = str(r.get("Status", "")).strip()
+        last_updated = str(r.get("Last Updated", "")).strip()
         if not batch_date or not tier:
             continue
-
+ 
         key = state_key(batch_date, tier)
         old_status = state.get(key)
-
+ 
         if old_status != status:
-            embed = change_announcement_embed(batch_date, tier, old_status, status)
-            await channel.send(embed=embed)
+            if not first_run:
+                embed = change_announcement_embed(batch_date, tier, old_status, status, last_updated)
+                try:
+                    await channel.send(embed=embed)
+                except discord.Forbidden:
+                    print(
+                        f"[poll_sheet_for_changes] Missing access to channel "
+                        f"{config.UPDATES_CHANNEL_ID} — check the bot can view/send in it. "
+                        "Skipping this announcement, will keep polling."
+                    )
+                except Exception as e:
+                    print(f"[poll_sheet_for_changes] Failed to send announcement: {e}")
             state[key] = status
             changed = True
-
+ 
     if changed:
-        save_state(state)
+        try:
+            save_state(state)
+            print(f"[poll_sheet_for_changes] saved {len(state)} entries to {config.STATE_FILE}")
+        except Exception as e:
+            print(f"[poll_sheet_for_changes] ⚠️ FAILED to save state — this will cause repeated re-announcing next poll: {e}")
+ 
+ 
 
 
 @poll_sheet_for_changes.before_loop
