@@ -346,6 +346,14 @@ async def on_ready():
             bot.tree.copy_global_to(guild=guild)
             synced = await bot.tree.sync(guild=guild)
             print(f"Synced {len(synced)} slash command(s) to guild {config.TEST_GUILD_ID}")
+
+            # If an earlier deploy ever synced globally (e.g. before
+            # TEST_GUILD_ID was set), that global copy is still registered on
+            # Discord's servers and will show up as a duplicate alongside the
+            # guild-scoped one above. Wipe it so only one copy remains.
+            bot.tree.clear_commands(guild=None)
+            await bot.tree.sync()
+            print("Cleared any stale globally-registered commands")
         else:
             synced = await bot.tree.sync()
             print(f"Synced {len(synced)} slash command(s) globally (may take up to an hour to appear)")
