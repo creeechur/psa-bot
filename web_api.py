@@ -117,11 +117,12 @@ def personal_lookup(payload: LookupRequest, request: Request):
     if not rows:
         return {"found": False}
 
-    total_cards = sum(int(r.get("card_qty") or 0) for r in rows)
-    tiers = sorted({r.get("tier", "Unknown") for r in rows})
+    submissions = [
+        {"tier": r.get("tier", "Unknown"), "card_qty": int(r.get("card_qty") or 0)}
+        for r in rows
+    ]
     return {
         "found": True,
         "name": rows[0].get("name", ""),
-        "tiers": tiers,
-        "total_cards": total_cards,
+        "submissions": submissions,
     }
