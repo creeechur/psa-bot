@@ -308,6 +308,7 @@
         const rows = data.submissions.map(s =>
           `<div class="psa-tier-block" data-clickable data-batch="${s.batch_date}">
             <strong>${s.batch_date}</strong> — ${s.tier} — ${s.card_qty} card(s)
+            ${s.status ? `<div style="color:#B50DBB;font-weight:700;margin-top:0.4rem;">${s.status}</div>` : ""}
           </div>`
         ).join("");
         emailFirstResult.innerHTML = `<p><strong>${data.name}</strong></p>${rows}`;
