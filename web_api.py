@@ -117,13 +117,13 @@ def personal_lookup(payload: LookupRequest, request: Request):
     if not rows:
         return {"found": False}
 
-    submissions = [
-        {"tier": r.get("tier", "Unknown"), "card_qty": int(r.get("card_qty") or 0)}
-        for r in rows
-    ]
-    return {
-        "found": True,
-        "name": rows[0].get("name", ""),
-        "submissions": submissions,
-    }
+   submissions = [
+       {"tier": r.get("tier", "Unknown"), "card_qty": int(r.get("card_qty") or 0)}
+       for r in rows
+   ]
+   return {
+       "found": True,
+       "name": rows[0].get("name", ""),
+       "submissions": submissions,
+   }
 
