@@ -151,14 +151,29 @@ def personal_lookup_by_email(payload: EmailLookupRequest, request: Request):
     if not rows:
         return {"found": False}
 
-    submissions = [
-        {
-            "batch_date": r.get("batch_date", ""),
-            "tier": r.get("tier", "Unknown"),
-            "card_qty": int(r.get("card_qty") or 0),
-        }
-        for r in rows
-    ]
+    # Join each submission with its current pipeline status, looked up once
+    # per unique batch (not once per row) to keep sheet reads bounded.
+    unique_batches = {r.get("batch_date", "") for r in rows if r.get("batch_date")}
+    status_by_batch = {}
+    for b in unique_batches:
+        try:
+            status_by_batch[b] = sheets_client.get_batch_tier_status(b)
+        except Exception:
+            status_by_batch[b] = {}
+
+    submissions = []
+    for r in rows:
+        batch = r.get("batch_date", "")
+        tier = r.get("tier", "Unknown")
+        tier_info = status_by_batch.get(batch, {}).get(tier, {})
+        submissions.append(
+            {
+                "batch_date": batch,
+                "tier": tier,
+                "card_qty": int(r.get("card_qty") or 0),
+                "status": tier_info.get("status", ""),
+            }
+        )
     return {
         "found": True,
         "name": rows[0].get("name", ""),
