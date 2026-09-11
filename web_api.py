@@ -144,36 +144,22 @@ def personal_lookup_by_email(payload: EmailLookupRequest, request: Request):
         raise HTTPException(status_code=429, detail="Too many lookups — try again later.")
 
     try:
-        rows = sheets_client.find_submissions_by_email(payload.email)
+        rows = sheets_client.find_submissions_by_email_with_status(payload.email)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Couldn't reach the sheet: {e}")
 
     if not rows:
         return {"found": False}
 
-    # Join each submission with its current pipeline status, looked up once
-    # per unique batch (not once per row) to keep sheet reads bounded.
-    unique_batches = {r.get("batch_date", "") for r in rows if r.get("batch_date")}
-    status_by_batch = {}
-    for b in unique_batches:
-        try:
-            status_by_batch[b] = sheets_client.get_batch_tier_status(b)
-        except Exception:
-            status_by_batch[b] = {}
-
-    submissions = []
-    for r in rows:
-        batch = r.get("batch_date", "")
-        tier = r.get("tier", "Unknown")
-        tier_info = status_by_batch.get(batch, {}).get(tier, {})
-        submissions.append(
-            {
-                "batch_date": batch,
-                "tier": tier,
-                "card_qty": int(r.get("card_qty") or 0),
-                "status": tier_info.get("status", ""),
-            }
-        )
+    submissions = [
+        {
+            "batch_date": r.get("batch_date", ""),
+            "tier": r.get("tier", "Unknown"),
+            "card_qty": int(r.get("card_qty") or 0),
+            "status": r.get("status", ""),
+        }
+        for r in rows
+    ]
     return {
         "found": True,
         "name": rows[0].get("name", ""),
