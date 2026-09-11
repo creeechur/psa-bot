@@ -145,6 +145,21 @@ def find_submissions_by_email(email: str) -> list[dict]:
     return out
 
 
+def find_submissions_by_email_with_status(email: str) -> list[dict]:
+    """Same as find_submissions_by_email, but each row also carries the
+    submission's current pipeline "status", joined from the Status tab.
+    Looks up status once per unique batch found (not once per row)."""
+    rows = find_submissions_by_email(email)
+    unique_batches = {r["batch_date"] for r in rows if r.get("batch_date")}
+    status_by_batch = {b: get_batch_tier_status(b) for b in unique_batches}
+
+    out = []
+    for r in rows:
+        tier_info = status_by_batch.get(r["batch_date"], {}).get(r["tier"], {})
+        out.append({**r, "status": tier_info.get("status", "")})
+    return out
+
+
 def update_status(batch_date: str, tier: str, new_status: str) -> str:
     """
     Updates (or creates) the Status row for (batch_date, tier).
