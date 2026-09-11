@@ -6,14 +6,6 @@
 
   Before pasting, replace API_BASE_URL below with your deployed web
   API's public URL.
-
-  STYLING NOTE: this inherits your theme's fonts/colors automatically
-  via CSS variables most Shopify themes (Dawn and Dawn-based themes)
-  already define — --color-foreground, --color-background,
-  --color-button, --font-body-family, etc. If your theme uses different
-  variable names, or you want an exact brand-color match, tell me your
-  theme name (or the hex codes) and I'll tune this precisely instead of
-  relying on inheritance.
 -->
 
 <style>
@@ -54,11 +46,10 @@
     font-size: 1.5rem;
     color: var(--psa-text);
     background: var(--psa-bg);
-    border: 1px solid var(--psa-border);
+    border: 1px solid #ffffff;
     border-radius: var(--psa-radius);
     box-sizing: border-box;
     appearance: auto;
-    border: 1px solid #ffffff;
   }
 
   #psa-tracker select:focus,
@@ -76,11 +67,10 @@
     text-transform: uppercase;
     color: #000;
     background: #FFF;
-    border: none;
+    border: 1px solid #ffffff;
     border-radius: var(--psa-radius);
     cursor: pointer;
     transition: opacity 0.15s ease;
-    border: 1px solid #ffffff;
     text-align: center;
   }
 
@@ -96,6 +86,9 @@
     width: 100%;
     box-sizing: border-box;
   }
+
+  .psa-tier-block[data-clickable] { cursor: pointer; transition: background 0.15s ease; }
+  .psa-tier-block[data-clickable]:hover { background: rgba(255, 255, 255, 0.1); }
 
   .psa-tier-name {
     font-weight: 700;
@@ -122,6 +115,9 @@
     line-height: 1.6;
   }
 
+  #psa-email-first-box { margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--psa-border); text-align: center; }
+  #psa-email-first-result { margin-top: 0.85rem; }
+
   #psa-lookup-box {
     display: none;
     margin-top: 1.25rem;
@@ -136,33 +132,44 @@
     text-align: center;
   }
 
+  #psa-email-first-input,
   #psa-email-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.85rem;
-  font-family: inherit;
-  font-size: 1.5rem;
-  color: #ffffff;
-  background: transparent;
-  border: 1px solid #ffffff;
-  border-radius: var(--psa-radius);
-  box-sizing: border-box;
-}
+    width: 100%;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.85rem;
+    font-family: inherit;
+    font-size: 1.5rem;
+    color: #ffffff;
+    background: transparent;
+    border: 1px solid #ffffff;
+    border-radius: var(--psa-radius);
+    box-sizing: border-box;
+  }
 
-#psa-email-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
+  #psa-email-first-input::placeholder,
+  #psa-email-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+  }
 
-#psa-email-input:focus {
-  outline: none;
-  border-color: #B50DBB;
-}
-  
+  #psa-email-first-input:focus,
+  #psa-email-input:focus {
+    outline: none;
+    border-color: #B50DBB;
+  }
+
   .psa-muted-text { color: var(--psa-muted); font-size: 1rem; }
 </style>
 
 <div id="psa-tracker">
   <h3>Check Your PSA Submission Status</h3>
+
+  <div id="psa-email-first-box">
+    <input id="psa-email-first-input" type="email" placeholder="Find your submission by email" />
+    <button id="psa-email-first-btn">Find My Submissions</button>
+    <div id="psa-email-first-result"></div>
+  </div>
+
+  <p class="psa-muted-text" style="text-align:center;margin:0.5rem 0;">— or pick a batch below —</p>
 
   <select id="psa-batch-select">
     <option value="">Loading batches...</option>
@@ -172,7 +179,7 @@
 
   <div id="psa-lookup-box">
     <input id="psa-email-input" type="email" placeholder="Your submission email" />
-    <button font-size: 2rem; id="psa-lookup-btn">Check My Cards</button>
+    <button id="psa-lookup-btn" style="font-size:2rem;">Check My Cards</button>
     <div id="psa-lookup-result"></div>
   </div>
 </div>
@@ -188,9 +195,13 @@
   const lookupBtn = document.getElementById("psa-lookup-btn");
   const lookupResult = document.getElementById("psa-lookup-result");
 
+  const emailFirstInput = document.getElementById("psa-email-first-input");
+  const emailFirstBtn = document.getElementById("psa-email-first-btn");
+  const emailFirstResult = document.getElementById("psa-email-first-result");
+
   let currentBatch = null;
 
-function renderPipeline(stageOrder, currentStage, lastUpdated) {
+  function renderPipeline(stageOrder, currentStage, lastUpdated) {
     const idx = stageOrder.indexOf(currentStage);
     return stageOrder.map((stage, i) => {
       let cls = "psa-stage-upcoming";
@@ -206,7 +217,7 @@ function renderPipeline(stageOrder, currentStage, lastUpdated) {
       }
       return `<div class="psa-stage-row ${cls}">${marker}${label}</div>`;
     }).join('<div class="psa-arrow">↓</div>');
-}
+  }
 
   function loadBatches() {
     fetch(`${API_BASE_URL}/api/batches`)
@@ -272,6 +283,49 @@ function renderPipeline(stageOrder, currentStage, lastUpdated) {
       .catch(() => {
         lookupBtn.disabled = false;
         lookupResult.innerHTML = '<p class="psa-muted-text">Something went wrong — try again.</p>';
+      });
+  });
+
+  // --- Email-first search: find submissions without already knowing the batch ---
+  emailFirstBtn.addEventListener("click", function () {
+    const email = emailFirstInput.value.trim();
+    if (!email) return;
+    emailFirstBtn.disabled = true;
+    emailFirstResult.innerHTML = '<p class="psa-muted-text">Searching...</p>';
+
+    fetch(`${API_BASE_URL}/api/lookup-by-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        emailFirstBtn.disabled = false;
+        if (!data.found) {
+          emailFirstResult.innerHTML = '<p class="psa-muted-text">No submissions found for that email.</p>';
+          return;
+        }
+        const rows = data.submissions.map(s =>
+          `<div class="psa-tier-block" data-clickable data-batch="${s.batch_date}">
+            <strong>${s.batch_date}</strong> — ${s.tier} — ${s.card_qty} card(s)
+          </div>`
+        ).join("");
+        emailFirstResult.innerHTML = `<p><strong>${data.name}</strong></p>${rows}`;
+
+        // clicking a result jumps straight to that batch's full status below
+        emailFirstResult.querySelectorAll("[data-batch]").forEach(el => {
+          el.addEventListener("click", function () {
+            const batch = this.getAttribute("data-batch");
+            batchSelect.value = batch;
+            currentBatch = batch;
+            loadStatus(batch);
+            statusResult.scrollIntoView({ behavior: "smooth" });
+          });
+        });
+      })
+      .catch(() => {
+        emailFirstBtn.disabled = false;
+        emailFirstResult.innerHTML = '<p class="psa-muted-text">Something went wrong — try again.</p>';
       });
   });
 
