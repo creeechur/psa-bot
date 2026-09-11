@@ -261,8 +261,10 @@ function renderPipeline(stageOrder, currentStage, lastUpdated) {
           lookupResult.innerHTML = '<p class="psa-muted-text">No submission found for that email in this batch.</p>';
           return;
         }
-        lookupResult.innerHTML =
-          `<strong>${data.name}</strong> — ${data.tiers.join(", ")} — ${data.total_cards} card(s)`;
+        const rows = data.submissions
+          .map(s => `<div>${s.tier} — ${s.card_qty} card(s)</div>`)
+          .join("");
+        lookupResult.innerHTML = `<strong>${data.name}</strong>${rows}`;
       })
       .catch(() => {
         lookupBtn.disabled = false;
