@@ -13,10 +13,11 @@ formats drift), the bot reads **one Google Sheet with two tabs**:
    `Timestamp | Name | Email | Submission Date | Tier | Card Quantity | Notes`
    - `Submission Date` is the **batch** date you assign (e.g. `May 31`), not
      necessarily the form timestamp.
-   - `Tier` = Super Express / Express / Regular / Value Max / TCG Bulk Grading.
+   - `Tier` = Value Bulk / Value Max / Standard / Regular / Express / Super Express / Walkthrough
+     (matches `TIER_ORDER` in `formatting.py` — update both together if this changes again).
 
 2. **`Status`** — you (staff) maintain this one, either by editing the sheet
-   directly or by running `!psa update` in Discord. Columns:
+   directly or by running `/psa update` in Discord. Columns:
    `Batch Date | Tier | Status | Last Updated`
    - `Status` should be one of: `Order Received`, `Scans Pending`,
      `Research & ID`, `Grading`, `Assembly`, `Completing`.
@@ -24,28 +25,32 @@ formats drift), the bot reads **one Google Sheet with two tabs**:
 Since PSA's own tracker is down, **you update the `Status` tab manually once
 a week** (5 tiers × however many active batches = a couple minutes of
 typing). The bot picks up the change automatically — either instantly if you
-use `!psa update`, or within one polling cycle (default 5 min) if you just
+use `/psa update`, or within one polling cycle (default 5 min) if you just
 edit the sheet by hand.
 
 ## What customers see
 
-```
-!psa submission
-> Listing the current PSA submission batches. Please reply with the batch
-> date you'd like to look at: May 11, May 31, June 13, June 28, July 4, July 27
+The bot uses Discord **slash commands** — type `/psa` and Discord shows the
+options, no need to remember exact syntax.
 
-May 31
+```
+/psa submission
+> (leave batch_date blank) → a dropdown appears with the current batches:
+> May 11, May 31, June 13, June 28, July 4, July 27
+> Pick one → shows that batch's status
+
+/psa submission batch_date: May 31
 > 📦 PSA Submission — May 31
-> Super Express   ✅ Order Received → ✅ Scans Pending → ✅ Research & ID → 🔵 **Assembly** → ⬜ Completing
-> Express         ✅ Order Received → ✅ Scans Pending → 🔵 **Grading** → ⬜ Assembly → ⬜ Completing
-> Regular         ✅ Order Received → ✅ Scans Pending → 🔵 **Grading** → ⬜ Assembly → ⬜ Completing
-> Value Max       ✅ Order Received → 🔵 **Research & ID** → ⬜ Grading → ⬜ Assembly → ⬜ Completing
-> TCG Bulk        ✅ Order Received → 🔵 **Research & ID** → ⬜ Grading → ⬜ Assembly → ⬜ Completing
+> Super Express   ~~Order Received~~ ↓ ~~Scans Pending~~ ↓ ~~Research & ID~~ ↓ 🟠 **Assembly**
+> Express         ~~Order Received~~ ↓ ~~Scans Pending~~ ↓ 🟡 **Grading**
+> ...
+> [🔎 Check my cards] ← button, opens a small form for their email, no typing a reply needed
 ```
 
-The embed colour shifts (grey → gold → orange → blue → green) based on how
-far along the batch is. Customers can then reply with their email to get
-their personal card count for that batch — no need to message you.
+The embed colour shifts based on how far along the batch is. Customers tap
+**Check my cards** to see their personal card count for that batch — this
+opens a small popup form (a "modal"), so nothing needs to be typed as a
+regular message.
 
 ## Setup
 
@@ -67,41 +72,50 @@ your PSA submission Google Form to write into `Submissions`.
 ### 3. Discord bot
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) → **New Application**.
 2. **Bot** tab → Add Bot → copy the token.
-3. Under **Privileged Gateway Intents**, enable **Message Content Intent**.
-4. **OAuth2 → URL Generator**: scopes = `bot`, permissions = `Send Messages`,
-   `Embed Links`, `Read Message History`. Use the generated URL to invite it
-   to your server.
+3. **Privileged Gateway Intents**: none of these need to be enabled — slash
+   commands don't read raw message content, so this bot doesn't need
+   Message Content Intent at all.
+4. **OAuth2 → URL Generator**: scopes = `bot` **and** `applications.commands`
+   (both — slash commands won't register without the second one),
+   permissions = `Send Messages`, `Embed Links`, `Read Message History`,
+   `Use Slash Commands`. Use the generated URL to invite it to your server.
 
 ### 4. Configure and run
 ```bash
 pip install -r requirements.txt
 cp .env.example .env
 # edit .env: paste your DISCORD_TOKEN, GOOGLE_SHEET_ID (from the sheet's
-# URL), and UPDATES_CHANNEL_ID (right-click a channel with Developer Mode
-# on -> Copy Channel ID)
+# URL), UPDATES_CHANNEL_ID (right-click a channel with Developer Mode on ->
+# Copy Channel ID), and optionally TEST_GUILD_ID (right-click your server
+# icon -> Copy Server ID) so slash commands sync instantly while you test
 
 python bot.py
 ```
+On startup, watch the logs for `Synced N slash command(s)`. With
+`TEST_GUILD_ID` set, the `/psa` commands appear in your server within
+seconds. Without it, Discord's global sync can take up to an hour to
+propagate the first time.
 
 ### 5. Give staff the update role
 Create a Discord role (default expected name: `PSA Staff`) and assign it to
-whoever should be allowed to run `!psa update`. Server Admins can always run
+whoever should be allowed to run `/psa update`. Server Admins can always run
 it too. Change allowed role names via `ADMIN_ROLE_NAMES` in `.env`.
 
 ## Commands
 
+All commands are Discord slash commands — type `/psa` in any channel the bot
+can see and Discord will show the options and autocomplete valid values
+(batch dates, tiers, stages) as you type.
+
 | Command | Who | What it does |
 |---|---|---|
-| `!psa submission` | anyone | Lists batches, waits for your reply |
-| `!psa submission <date>` | anyone | Shows that batch's pipeline directly |
-| `!psa submission <date> <email>` | anyone | Shows your personal card count for that batch |
-| `!psa update <date> <tier> <status>` | staff | Updates a tier's stage, writes to the sheet, and auto-announces the change |
-| `!psahelp` | anyone | Prints the command list |
+| `/psa submission` | anyone | Leave `batch_date` blank to get a dropdown of current batches |
+| `/psa submission batch_date:` | anyone | Shows that batch's pipeline directly |
+| `/psa submission batch_date: email:` | anyone | Also shows your personal card count for that batch |
+| *(button on the result) 🔎 Check my cards* | anyone | Opens a small form to enter your email — no typing a reply message |
+| `/psa update` | staff | Prompts for batch/tier/new status (autocompleted), writes to the sheet, and auto-announces the change |
+| `/psa help` | anyone | Prints the command list |
 
-Example staff update:
-```
-!psa update "May 31" "Super Express" Assembly
-```
 (Quote the batch date and tier if they contain spaces.)
 
 ## Notes / things you'll likely want to tweak
