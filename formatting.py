@@ -36,6 +36,7 @@ STAGE_COLOR = {
 TIER_ORDER = ["Value Bulk", "Value Max", "Standard", "Regular", "Express", "Super Express", "Walkthrough"]
 
  
+
 def normalize_stage(stage: str) -> str:
     """Match a free-typed status string to the closest known stage name."""
     if not stage:
@@ -145,6 +146,33 @@ def personal_lookup_embed(batch_date: str, email: str, rows: list) -> discord.Em
     return embed
  
  
+def email_search_embed(email: str, rows: list) -> discord.Embed:
+    """rows: list of dicts with keys name, batch_date, tier, card_qty, status
+    — a submission found for this email, across every batch."""
+    embed = discord.Embed(
+        title="🔎 Your PSA Submissions",
+        color=discord.Color.blurple(),
+    )
+    if not rows:
+        embed.description = f"No submissions found for `{email}`."
+        return embed
+ 
+    embed.description = f"**{rows[0].get('name', '—')}**"
+    for r in rows:
+        batch = r.get("batch_date", "Unknown batch")
+        tier = r.get("tier", "Unknown")
+        qty = int(r.get("card_qty") or 0)
+        status = r.get("status", "")
+        value = f"{tier} — {qty} card(s)"
+        if status:
+            emoji = STAGE_EMOJI.get(normalize_stage(status), "")
+            value += f"\n{emoji} {status}"
+        embed.add_field(name=batch, value=value, inline=True)
+ 
+    embed.set_footer(text="Pick a batch below to see its full pipeline status.")
+    return embed
+ 
+ 
 def change_announcement_embed(
     batch_date: str, tier: str, old_stage: str, new_stage: str, last_updated: str = None
 ) -> discord.Embed:
@@ -156,4 +184,3 @@ def change_announcement_embed(
     )
     embed.add_field(name="Pipeline", value=pipeline_string(new_stage, last_updated), inline=False)
     return embed
- 
