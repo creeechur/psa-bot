@@ -126,6 +126,25 @@ def find_submissions_for(batch_date: str, email: str) -> list[dict]:
     return out
 
 
+def find_submissions_by_email(email: str) -> list[dict]:
+    """All of one email's submissions, across every batch — used for the
+    "search by email first" flow that doesn't require knowing the batch date."""
+    rows = get_submissions()
+    out = []
+    for r in rows:
+        row_email = str(r.get("Email", "")).strip().lower()
+        if row_email == email.strip().lower():
+            out.append(
+                {
+                    "name": r.get("Name", ""),
+                    "batch_date": r.get("Submission Date", ""),
+                    "tier": r.get("Tier", ""),
+                    "card_qty": r.get("Card Quantity", 0),
+                }
+            )
+    return out
+
+
 def update_status(batch_date: str, tier: str, new_status: str) -> str:
     """
     Updates (or creates) the Status row for (batch_date, tier).
