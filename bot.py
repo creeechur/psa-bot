@@ -334,31 +334,42 @@ async def before_poll():
     await bot.wait_until_ready()
 
 
+_commands_synced = False  # on_ready fires on every reconnect, not just startup —
+                          # this stops the sync/clear logic from running more than once
+
+
 @bot.event
 async def on_ready():
+    global _commands_synced
     print(f"Logged in as {bot.user} (id: {bot.user.id})")
 
-    try:
-        if config.TEST_GUILD_ID:
-            # Guild-scoped sync propagates instantly — best for a single-server
-            # bot like this one, vs. a global sync which can take up to an hour.
-            guild = discord.Object(id=config.TEST_GUILD_ID)
-            bot.tree.copy_global_to(guild=guild)
-            synced = await bot.tree.sync(guild=guild)
-            print(f"Synced {len(synced)} slash command(s) to guild {config.TEST_GUILD_ID}")
+    if not _commands_synced:
+        try:
+            if config.TEST_GUILD_ID:
+                # Guild-scoped sync propagates instantly — best for a single-server
+                # bot like this one, vs. a global sync which can take up to an hour.
+                guild = discord.Object(id=config.TEST_GUILD_ID)
+                bot.tree.copy_global_to(guild=guild)
+                synced = await bot.tree.sync(guild=guild)
+                print(f"Synced {len(synced)} slash command(s) to guild {config.TEST_GUILD_ID}")
 
-            # If an earlier deploy ever synced globally (e.g. before
-            # TEST_GUILD_ID was set), that global copy is still registered on
-            # Discord's servers and will show up as a duplicate alongside the
-            # guild-scoped one above. Wipe it so only one copy remains.
-            bot.tree.clear_commands(guild=None)
-            await bot.tree.sync()
-            print("Cleared any stale globally-registered commands")
-        else:
-            synced = await bot.tree.sync()
-            print(f"Synced {len(synced)} slash command(s) globally (may take up to an hour to appear)")
-    except Exception as e:
-        print(f"⚠️ Slash command sync failed: {e}")
+                # If an earlier deploy ever synced globally (e.g. before
+                # TEST_GUILD_ID was set), that global copy is still registered on
+                # Discord's servers and will show up as a duplicate alongside the
+                # guild-scoped one above. Wipe it so only one copy remains.
+                # IMPORTANT: this must only ever run once — see _commands_synced
+                # guard above, since clearing the local global cache and then
+                # re-running copy_global_to on a later reconnect would copy
+                # nothing and wipe out the guild commands too.
+                bot.tree.clear_commands(guild=None)
+                await bot.tree.sync()
+                print("Cleared any stale globally-registered commands")
+            else:
+                synced = await bot.tree.sync()
+                print(f"Synced {len(synced)} slash command(s) globally (may take up to an hour to appear)")
+            _commands_synced = True
+        except Exception as e:
+            print(f"⚠️ Slash command sync failed: {e}")
 
     if not poll_sheet_for_changes.is_running():
         poll_sheet_for_changes.start()
